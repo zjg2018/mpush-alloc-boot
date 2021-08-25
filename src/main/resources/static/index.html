@@ -13,7 +13,7 @@
     <br/>
     <label>
         Push Content:<span style="color: red">*</span>
-        <input type="text" value="hello mpush" id="hello" required="required" style="width: 100%">
+        <input type="text" value="hello mpush" id="content" required="required" style="width: 100%">
 
     </label>
     <br/>
@@ -37,7 +37,7 @@
     function send() {
         var broadcast = $('broadcast').checked;
         var userId = $('userId').value;
-        var content = $('hello').value;
+        var content = $('content').value;
         if (!userId && !broadcast) {
             alert("please input userId.");
             return false;

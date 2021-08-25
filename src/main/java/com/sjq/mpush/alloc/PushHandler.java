@@ -19,7 +19,7 @@
 
 package com.sjq.mpush.alloc;
 
-import com.mpush.api.Constants;
+import com.alibaba.fastjson.JSONObject;
 import com.mpush.api.push.*;
 import com.mpush.tools.Jsons;
 import com.mpush.tools.common.Strings;
@@ -27,12 +27,15 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Map;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * Created by ohun on 16/9/7.
  *
@@ -54,45 +57,43 @@ import java.util.concurrent.atomic.AtomicInteger;
     @SuppressWarnings("unchecked")
     @Override
     public void handle(HttpExchange httpExchange) throws IOException {
-        String body = new String(readBody(httpExchange), Constants.UTF_8);
-        Map<String, Object> params = Jsons.fromJson(body, Map.class);
-        sendPush(params);
-        byte[] data = "服务已经开始推送,请注意查收消息".getBytes(Constants.UTF_8);
-        httpExchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
-        httpExchange.sendResponseHeaders(200, data.length);//200, content-length
-        OutputStream out = httpExchange.getResponseBody();
-        out.write(data);
-        out.close();
-        httpExchange.close();
+
     }
 
-    public void sendPush(Map<String, Object> params) {
-        String userId = (String) params.get("userId");
-        String hello = (String) params.get("hello");
-        Boolean broadcast = (Boolean) params.get("broadcast");
-        String condition = (String) params.get("condition");
-
+    public PushResult sendPush(JSONObject params) {
+        PushResult result=null;
+        String pushId = params.containsKey("pushId") ? params.getString("pushId") : "";
+        String userId = params.containsKey("userId") ? params.getString("userId") : "";
+        String title = params.containsKey("title") ? params.getString("title") : "苏警通推送";
+        String content = params.containsKey("content") ? params.getString("content") : "";
+        Boolean broadcast = params.containsKey("broadcast") ? params.getBoolean("broadcast") : true;
+        String condition = params.containsKey("condition") ? params.getString("condition") : "";
+        String pkgname = params.containsKey("pkgname") ? params.getString("pkgname") : "";
+        String url = params.containsKey("url") ? params.getString("url") : "";
+        JSONObject extrasObj = params.containsKey("extras") ? params.getJSONObject("extras") : new JSONObject();
 
         NotificationDO notificationDO = new NotificationDO();
-        notificationDO.content = "MPush开源推送，" + hello;
-        notificationDO.title = "MPUSH推送";
+        notificationDO.pushId = pushId;
+        notificationDO.content = content;
+        notificationDO.title = title;
         notificationDO.nid = idSeq.get() % 2 + 1;
-        notificationDO.ticker = "你有一条新的消息,请注意查收";
+        notificationDO.ticker = title + " 你有一条新的消息,请注意查收";
+        notificationDO.pkgname = pkgname;
+        notificationDO.url = url;
+        notificationDO.extras = extrasObj;
         PushMsg pushMsg = PushMsg.build(MsgType.NOTIFICATION_AND_MESSAGE, Jsons.toJson(notificationDO));
         pushMsg.setMsgId("msg_" + idSeq.incrementAndGet());
-
-        pushSender.send(PushContext
+        FutureTask<PushResult> futureTask = pushSender.send(PushContext
                 .build(pushMsg)
                 .setUserId(Strings.isBlank(userId) ? null : userId)
                 .setBroadcast(broadcast != null && broadcast)
-                .setCondition(Strings.isBlank(condition) ? null : condition)
-                .setCallback(new PushCallback() {
-                    @Override
-                    public void onResult(PushResult result) {
-                        logger.info(result.toString());
-                    }
-                })
-        );
+                .setCondition(Strings.isBlank(condition) ? null : condition));
+        try {
+             result = futureTask.get(3, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return result;
     }
 
     private byte[] readBody(HttpExchange httpExchange) throws IOException {
@@ -116,14 +117,17 @@ import java.util.concurrent.atomic.AtomicInteger;
     }
 
     public static final class NotificationDO {
+        public String pushId;
         public String msgId;
         public String title;
         public String content;
+        public String pkgname;
+        public String url;
         public Integer nid; //主要用于聚合通知，非必填
         public Byte flags; //特性字段。 0x01:声音  0x02:震动  0x03:闪灯
         public String largeIcon; // 大图标
         public String ticker; //和title一样
         public Integer number;
-        public Map<String, String> extras;
+        public JSONObject extras;
     }
 }

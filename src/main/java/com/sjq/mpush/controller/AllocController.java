@@ -1,5 +1,8 @@
 package com.sjq.mpush.controller;
 
+import com.alibaba.fastjson.JSONObject;
+import com.mpush.api.push.PushCallback;
+import com.mpush.api.push.PushResult;
 import com.mpush.tools.Jsons;
 import com.sjq.mpush.util.MpushUtil;
 import com.sjq.mpush.util.Result;
@@ -20,21 +23,28 @@ import java.util.Map;
 @RestController
 @RequestMapping("/")
 public class AllocController {
-
     @PostConstruct
     public void init() {
 
     }
+
     @RequestMapping("/")
     public String getServer() {
-        return MpushUtil.getAllocServer().getServer();
+        String res = MpushUtil.getAllocServer().getServer();
+        res = res.replace("50.88.1.227", "10.101.0.90");
+        return res;
     }
 
     @RequestMapping("/push")
     public Result push(@RequestBody String content) {
-        log.info("content----------"+content);
-        Map<String, Object> params = Jsons.fromJson(content, Map.class);
-        MpushUtil.getAllocServer().push(params);
-        return Result.ok();
+        log.info("content----------" + content);
+        JSONObject contentObj = null;
+        try {
+            contentObj = JSONObject.parseObject(content);
+        } catch (Exception e) {
+            return Result.error("请推送结构化数据");
+        }
+        PushResult pushResult=MpushUtil.getAllocServer().push(contentObj);
+        return Result.ok(pushResult==null?4:pushResult.getResultCode());
     }
 }

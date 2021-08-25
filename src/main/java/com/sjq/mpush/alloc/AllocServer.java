@@ -1,10 +1,11 @@
 package com.sjq.mpush.alloc;
 
+import com.alibaba.fastjson.JSONObject;
+import com.mpush.api.push.PushCallback;
+import com.mpush.api.push.PushResult;
 import com.mpush.api.service.BaseService;
 import com.mpush.api.service.Listener;
 import com.mpush.tools.log.Logs;
-
-import java.util.Map;
 
 /**
  * Created by yxx on 2016/5/6.
@@ -26,8 +27,8 @@ public final class AllocServer extends BaseService {
         return str;
     }
 
-    public void push(Map<String, Object> params) {
-        pushHandler.sendPush(params);
+    public PushResult push(JSONObject params) {
+         return   pushHandler.sendPush(params);
     }
 
     @Override
